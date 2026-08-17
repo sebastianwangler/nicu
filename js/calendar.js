@@ -98,6 +98,18 @@ function renderKalender(hausKey, container) {
   }
 
   html += `</div>`;
+
+  // Nur auf Mobile sichtbar (siehe CSS): dort verzichten die Kästchen auf den
+  // Text "belegt"/"angefragt" (verzieht sonst das Raster), stattdessen erklärt
+  // diese Legende die Farben.
+  html += `
+    <div class="kalender-legende">
+      <span class="legende-eintrag"><span class="legende-swatch legende-swatch--frei"></span>${t("calendar.free")}</span>
+      <span class="legende-eintrag"><span class="legende-swatch legende-swatch--angefragt"></span>${t("calendar.requested")}</span>
+      <span class="legende-eintrag"><span class="legende-swatch legende-swatch--belegt"></span>${t("calendar.booked")}</span>
+    </div>
+  `;
+
   container.innerHTML = html;
 
   container.querySelector('[data-nav="prev"]').addEventListener("click", () => {

@@ -174,9 +174,17 @@ function doGet(e) {
   }
 
   const werte = blatt.getRange(zeile, 1, 1, SHEET_SPALTEN.length).getValues()[0];
-  const [, , , name, email, telefon, vonRoh, bisRoh, erwachsene, kinder, tiere, tierart, , eventIdOeffentlich] = werte;
+  const [, , , name, email, telefon, vonRoh, bisRoh, erwachsene, kinder, tiere, tierart, status, eventIdOeffentlich] = werte;
   const von = zuISODatum(vonRoh);
   const bis = zuISODatum(bisRoh);
+
+  // Absicherung gegen Doppelklicks (z. B. durch Browser-Cache-Verwirrung):
+  // eine Anfrage, die schon zugesagt/abgelehnt wurde, wird nicht nochmal
+  // verarbeitet — sonst gäbe es bei "zusagen" doppelte Einträge im privaten
+  // Kalender.
+  if (status === "bestätigt" || status === "abgelehnt") {
+    return seitenAusgabe(`<p>Diese Anfrage wurde bereits bearbeitet (Status: ${status}).</p>`);
+  }
 
   if (action === "ablehnen") {
     blatt.getRange(zeile, 13).setValue("abgelehnt"); // Spalte "status"

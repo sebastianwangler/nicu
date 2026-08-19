@@ -33,8 +33,7 @@ const I18N = {
     "form.success.title.real": "Anfrage abgeschickt",
     "form.success.body.real": "Deine Anfrage wurde an den Verwalter geschickt. Du erhältst eine Rückmeldung, sobald sie bearbeitet wurde.",
     "lang.de": "DE",
-    "lang.fr": "FR",
-    "lang.en": "EN"
+    "lang.fr": "FR"
   },
   fr: {
     "calendar.prev": "‹ Mois précédent",
@@ -69,48 +68,11 @@ const I18N = {
     "form.success.title.real": "Demande envoyée",
     "form.success.body.real": "Votre demande a été envoyée au gestionnaire. Vous recevrez une réponse dès qu'elle sera traitée.",
     "lang.de": "DE",
-    "lang.fr": "FR",
-    "lang.en": "EN"
-  },
-  en: {
-    "calendar.prev": "‹ Previous month",
-    "calendar.next": "Next month ›",
-    "calendar.free": "available",
-    "calendar.requested": "Booking requested",
-    "calendar.booked": "booked",
-    "calendar.error.blocked": "That range includes a day that is already booked or requested. Please pick again.",
-    "calendar.hint.start": "Select arrival date",
-    "calendar.hint.end": "Select departure date",
-    "carousel.prev": "Previous image",
-    "carousel.next": "Next image",
-    "carousel.placeholder": "Image",
-    "info.title": "About this house",
-    "preise.title": "Prices",
-    "preise.erwachsene": "Price / night / adult",
-    "preise.kind": "Price / night / child",
-    "preise.reinigung": "Cleaning fee",
-    "form.title": "Request a booking",
-    "form.range": "Date range",
-    "form.adults": "Adults",
-    "form.children": "Children",
-    "form.pets": "Pets",
-    "form.petType": "What kind of pets?",
-    "form.petType.placeholder": "e.g. 1 dog",
-    "form.name": "Name",
-    "form.email": "Email",
-    "form.phone": "Phone",
-    "form.submit": "Request booking",
-    "form.success.title": "Request sent (test mode)",
-    "form.success.body": "In production this email would go to the manager, and the days would be blocked as \"requested\" in the public calendar:",
-    "form.success.title.real": "Request sent",
-    "form.success.body.real": "Your request has been sent to the manager. You'll hear back once it's been reviewed.",
-    "lang.de": "DE",
-    "lang.fr": "FR",
-    "lang.en": "EN"
+    "lang.fr": "FR"
   }
 };
 
-const SUPPORTED_LANGS = ["de", "fr", "en"];
+const SUPPORTED_LANGS = ["de", "fr"];
 
 function ermittleStartsprache() {
   const gespeichert = localStorage.getItem("lang");

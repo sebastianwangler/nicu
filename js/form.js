@@ -199,7 +199,11 @@ async function absenden(hausKey, container) {
     erwachsene: state.erwachsene,
     kinder: state.kinder,
     tiere: state.tiere,
-    tierart: state.tiere > 0 ? state.tierart.trim() : ""
+    tierart: state.tiere > 0 ? state.tierart.trim() : "",
+    // Sprache der Seite zum Zeitpunkt der Anfrage — Apps Script nutzt sie
+    // später, um Zusagen/Ablehnen-Antwortmail in der richtigen Sprache zu
+    // öffnen.
+    sprache: AKTUELLE_SPRACHE
   };
 
   const appsScriptUrl = CONFIG.haeuser[hausKey].appsScriptUrl;

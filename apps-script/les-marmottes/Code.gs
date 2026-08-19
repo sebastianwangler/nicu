@@ -1,7 +1,9 @@
 // Apps Script Web App für Les Marmottes. Läuft im Google-Konto
 // lesmarmottesb@gmail.com (dort in script.google.com einfügen + als Web App
-// deployen). Legt bei einer Anfrage automatisch das Sheet "Les Marmottes –
-// Anfragen" an, falls es noch nicht existiert.
+// deployen). Legt bei Bedarf automatisch an: das Sheet "Les Marmottes –
+// Anfragen" und vier Google-Drive-Textdateien mit den Antwort-Vorlagen
+// (siehe VORLAGEN_DATEIEN unten) — Wortlaut lässt sich dort direkt ändern,
+// ohne den Code anzufassen.
 //
 // Nur EIN Kalender für alles (KALENDER_ID unten) — die Website liest ihn
 // direkt und zeigt automatisch jeden Termin als "belegt" an (Titel = Name),
@@ -10,18 +12,19 @@
 // gilt als offene Anfrage (gelb) — sieh calendar.js/parseEventTitel.
 //
 // Ablauf:
-//   doPost   <- Website sendet neue Anfrage
+//   doPost   <- Website sendet neue Anfrage (inkl. Sprache der Seite)
 //              -> "Name (ANGEFRAGT)"-Eintrag im Kalender
-//              -> Zeile im Sheet
+//              -> Zeile im Sheet (inkl. Sprache)
 //              -> Mail an den Verwalter mit "Zusagen"/"Ablehnen"-Links
 //   doGet    <- Verwalter klickt einen der beiden Links in der Mail
-//     ablehnen  -> öffnet vorbereitete Antwort-Mail an den Gast
-//                  (Kalender-Eintrag bleibt vorerst bestehen, siehe unten)
+//     ablehnen  -> öffnet vorbereitete Antwort-Mail an den Gast, in der
+//                  Sprache, die der Gast beim Anfragen ausgewählt hatte
+//                  (Kalender-Eintrag bleibt vorerst bestehen)
 //     zusagen   -> benennt den bestehenden Eintrag auf reinen Namen um
 //                  (kein "(ANGEFRAGT)" mehr -> zählt automatisch als
 //                  "belegt"), schreibt Kontaktdaten in die Beschreibung
 //                  (die Website liest nur den Titel, nie die Beschreibung),
-//                  öffnet vorbereitete Bestätigungs-Mail
+//                  öffnet vorbereitete Bestätigungs-Mail (gleiche Sprachlogik)
 
 const KALENDER_ID =
   "4272fb587c47328f819830065cf06566108ca68f64dcf0a6a89f6fd6f399b933@group.calendar.google.com";
@@ -31,8 +34,32 @@ const SHEET_DATEINAME = "Les Marmottes – Anfragen";
 const BLATT_NAME = "Anfragen";
 const SHEET_SPALTEN = [
   "id", "timestamp", "haus", "name", "email", "telefon", "von", "bis",
-  "erwachsene", "kinder", "tiere", "tierart", "status", "eventId"
+  "erwachsene", "kinder", "tiere", "tierart", "status", "eventId", "sprache"
 ];
+
+// Antwort-Texte als eigene Drive-Textdateien, damit sich der Wortlaut
+// ändern lässt, ohne den Code zu berühren. Werden beim ersten Aufruf mit
+// diesen Platzhaltertexten automatisch angelegt, danach einfach in Drive
+// öffnen und den Inhalt überschreiben. {{name}}, {{von}}, {{bis}}, {{haus}}
+// werden beim Versand ersetzt.
+const VORLAGEN_DATEIEN = {
+  "zusagen-de": {
+    name: "Les Marmottes – Antwort Zusagen DE",
+    standard: "Vielen Dank, hier noch Infos."
+  },
+  "zusagen-fr": {
+    name: "Les Marmottes – Antwort Zusagen FR",
+    standard: "Merci, voici encore quelques infos."
+  },
+  "ablehnen-de": {
+    name: "Les Marmottes – Antwort Ablehnen DE",
+    standard: "Leider keine Kapazität."
+  },
+  "ablehnen-fr": {
+    name: "Les Marmottes – Antwort Ablehnen FR",
+    standard: "Malheureusement pas de disponibilité."
+  }
+};
 
 function getKalender() {
   return CalendarApp.getCalendarById(KALENDER_ID);
@@ -58,6 +85,24 @@ function findeZeile(blatt, id) {
     if (daten[i][0] === id) return i + 1; // Sheet-Zeilen sind 1-basiert
   }
   return -1;
+}
+
+// Lädt eine Vorlagendatei aus Drive (legt sie beim ersten Mal mit
+// Platzhaltertext an) und ersetzt {{name}}/{{von}}/{{bis}}/{{haus}}.
+function holeVorlage(schluessel, werte) {
+  const eintrag = VORLAGEN_DATEIEN[schluessel];
+  const dateien = DriveApp.getFilesByName(eintrag.name);
+  let datei;
+  if (dateien.hasNext()) {
+    datei = dateien.next();
+  } else {
+    datei = DriveApp.createFile(eintrag.name, eintrag.standard, MimeType.PLAIN_TEXT);
+  }
+  let text = datei.getBlob().getDataAsString();
+  Object.keys(werte).forEach((k) => {
+    text = text.split(`{{${k}}}`).join(werte[k]);
+  });
+  return text;
 }
 
 // Deutsches Datumsformat für Betreffzeilen, passend zur Website.
@@ -86,9 +131,23 @@ function alsGanztagesEnde(bisISO) {
   return Utilities.formatDate(datum, Session.getScriptTimeZone(), "yyyy-MM-dd");
 }
 
+// Betreffzeilen zweisprachig (DE/FR) — kurz genug, um im Code statt in
+// einer eigenen Vorlagendatei zu bleiben.
+function betreffZusagen(sprache, name, von, bis) {
+  return sprache === "fr"
+    ? `Confirmation de la demande de réservation ${HAUS_NAME} – ${name}, ${formatiereDatum(von)} – ${formatiereDatum(bis)}`
+    : `Bestätigung Reservationsanfrage ${HAUS_NAME} – ${name}, ${formatiereDatum(von)} – ${formatiereDatum(bis)}`;
+}
+
+function betreffAblehnen(sprache, name, von, bis) {
+  return sprache === "fr"
+    ? `Refus de la demande de réservation ${HAUS_NAME} – ${name}, ${formatiereDatum(von)} – ${formatiereDatum(bis)}`
+    : `Ablehnung Reservationsanfrage ${HAUS_NAME} – ${name}, ${formatiereDatum(von)} – ${formatiereDatum(bis)}`;
+}
+
 function doPost(e) {
   const daten = JSON.parse(e.postData.contents);
-  const { name, email, telefon, von, bis, erwachsene, kinder, tiere, tierart } = daten;
+  const { name, email, telefon, von, bis, erwachsene, kinder, tiere, tierart, sprache } = daten;
 
   const kalender = getKalender();
 
@@ -112,7 +171,8 @@ function doPost(e) {
   const blatt = getSheet();
   blatt.appendRow([
     id, new Date(), "haus1", name, email, telefon, von, bis,
-    erwachsene, kinder, tiere, tierart || "", "angefragt", angefragtEvent.getId()
+    erwachsene, kinder, tiere, tierart || "", "angefragt", angefragtEvent.getId(),
+    sprache === "fr" ? "fr" : "de"
   ]);
 
   const webAppUrl = ScriptApp.getService().getUrl();
@@ -176,9 +236,11 @@ function doGet(e) {
   }
 
   const werte = blatt.getRange(zeile, 1, 1, SHEET_SPALTEN.length).getValues()[0];
-  const [, , , name, email, telefon, vonRoh, bisRoh, erwachsene, kinder, tiere, tierart, status, eventId] = werte;
+  const [, , , name, email, telefon, vonRoh, bisRoh, erwachsene, kinder, tiere, tierart, status, eventId, sprache] = werte;
   const von = zuISODatum(vonRoh);
   const bis = zuISODatum(bisRoh);
+  const spracheKlein = sprache === "fr" ? "fr" : "de";
+  const platzhalter = { name, von: formatiereDatum(von), bis: formatiereDatum(bis), haus: HAUS_NAME };
 
   // Absicherung gegen Doppelklicks (z. B. durch Browser-Cache-Verwirrung):
   // eine Anfrage, die schon zugesagt/abgelehnt wurde, wird nicht nochmal
@@ -189,11 +251,11 @@ function doGet(e) {
 
   if (action === "ablehnen") {
     blatt.getRange(zeile, 13).setValue("abgelehnt"); // Spalte "status"
-    const betreffAblehnen = `Ablehnung Reservationsanfrage ${HAUS_NAME} – ${name}, ${formatiereDatum(von)} – ${formatiereDatum(bis)}`;
+    const text = holeVorlage(`ablehnen-${spracheKlein}`, platzhalter);
     const mailtoLink =
       `mailto:${encodeURIComponent(email)}` +
-      `?subject=${encodeURIComponent(betreffAblehnen)}` +
-      `&body=${encodeURIComponent("Leider keine Kapazität.")}`;
+      `?subject=${encodeURIComponent(betreffAblehnen(spracheKlein, name, von, bis))}` +
+      `&body=${encodeURIComponent(text)}`;
     return mailSeite("Anfrage abgelehnt.", mailtoLink);
   }
 
@@ -212,11 +274,11 @@ function doGet(e) {
 
     blatt.getRange(zeile, 13).setValue("bestätigt"); // Spalte "status"
 
-    const betreff = `Bestätigung Reservationsanfrage ${HAUS_NAME} – ${name}, ${formatiereDatum(von)} – ${formatiereDatum(bis)}`;
+    const text = holeVorlage(`zusagen-${spracheKlein}`, platzhalter);
     const mailtoLink =
       `mailto:${encodeURIComponent(email)}` +
-      `?subject=${encodeURIComponent(betreff)}` +
-      `&body=${encodeURIComponent("Vielen Dank, hier noch Infos.")}`;
+      `?subject=${encodeURIComponent(betreffZusagen(spracheKlein, name, von, bis))}` +
+      `&body=${encodeURIComponent(text)}`;
     return mailSeite("Buchung bestätigt.", mailtoLink);
   }
 

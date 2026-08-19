@@ -64,6 +64,18 @@ function formatiereDatum(isoDatum) {
   return `${t}.${m}.${j}`;
 }
 
+// Sheets wandelt Zellen, die wie ein Datum aussehen (z. B. "2026-08-15"),
+// beim Schreiben automatisch in ein echtes Datumsobjekt um — beim
+// Zurücklesen kommt dann kein Text mehr, sondern ein Date. Normalisiert
+// beides auf "yyyy-MM-dd", damit alsGanztagesEnde() & Co. verlässlich
+// funktionieren, egal was aus der Zelle kommt.
+function zuISODatum(wert) {
+  if (wert instanceof Date) {
+    return Utilities.formatDate(wert, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+  return String(wert);
+}
+
 // Google: end.date bei ganztägigen Events ist exklusiv (Tag NACH dem
 // letzten belegten Tag). Unser "bis" von der Website ist inklusive.
 function alsGanztagesEnde(bisISO) {
@@ -162,7 +174,9 @@ function doGet(e) {
   }
 
   const werte = blatt.getRange(zeile, 1, 1, SHEET_SPALTEN.length).getValues()[0];
-  const [, , , name, email, telefon, von, bis, erwachsene, kinder, tiere, tierart, , eventIdOeffentlich] = werte;
+  const [, , , name, email, telefon, vonRoh, bisRoh, erwachsene, kinder, tiere, tierart, , eventIdOeffentlich] = werte;
+  const von = zuISODatum(vonRoh);
+  const bis = zuISODatum(bisRoh);
 
   if (action === "ablehnen") {
     blatt.getRange(zeile, 13).setValue("abgelehnt"); // Spalte "status"

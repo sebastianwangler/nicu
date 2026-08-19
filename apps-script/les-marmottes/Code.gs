@@ -3,17 +3,27 @@
 // deployen). Legt bei einer Anfrage automatisch das Sheet "Les Marmottes –
 // Anfragen" an, falls es noch nicht existiert.
 //
+// Nur EIN Kalender für alles (KALENDER_ID unten) — die Website liest ihn
+// direkt und zeigt automatisch jeden Termin als "belegt" an (Titel = Name),
+// unabhängig davon ob er über die Website oder manuell in Google Calendar
+// angelegt wurde. Einzige Ausnahme: ein Titel, der auf "(ANGEFRAGT)" endet,
+// gilt als offene Anfrage (gelb) — sieh calendar.js/parseEventTitel.
+//
 // Ablauf:
 //   doPost   <- Website sendet neue Anfrage
-//              -> ANGEFRAGT-Eintrag im öffentlichen Kalender
+//              -> "Name (ANGEFRAGT)"-Eintrag im Kalender
 //              -> Zeile im Sheet
 //              -> Mail an den Verwalter mit "Zusagen"/"Ablehnen"-Links
 //   doGet    <- Verwalter klickt einen der beiden Links in der Mail
 //     ablehnen  -> öffnet vorbereitete Antwort-Mail an den Gast
-//     zusagen   -> Eintrag im privaten Kalender, ANGEFRAGT -> BELEGT im
-//                  öffentlichen Kalender, öffnet vorbereitete Bestätigungs-Mail
+//                  (Kalender-Eintrag bleibt vorerst bestehen, siehe unten)
+//     zusagen   -> benennt den bestehenden Eintrag auf reinen Namen um
+//                  (kein "(ANGEFRAGT)" mehr -> zählt automatisch als
+//                  "belegt"), schreibt Kontaktdaten in die Beschreibung
+//                  (die Website liest nur den Titel, nie die Beschreibung),
+//                  öffnet vorbereitete Bestätigungs-Mail
 
-const OEFFENTLICHER_KALENDER_ID =
+const KALENDER_ID =
   "4272fb587c47328f819830065cf06566108ca68f64dcf0a6a89f6fd6f399b933@group.calendar.google.com";
 const VERWALTER_EMAIL = "lesmarmottesb@gmail.com";
 const HAUS_NAME = "Les Marmottes";
@@ -21,19 +31,11 @@ const SHEET_DATEINAME = "Les Marmottes – Anfragen";
 const BLATT_NAME = "Anfragen";
 const SHEET_SPALTEN = [
   "id", "timestamp", "haus", "name", "email", "telefon", "von", "bis",
-  "erwachsene", "kinder", "tiere", "tierart", "status", "eventIdOeffentlich"
+  "erwachsene", "kinder", "tiere", "tierart", "status", "eventId"
 ];
 
-function getOeffentlicherKalender() {
-  return CalendarApp.getCalendarById(OEFFENTLICHER_KALENDER_ID);
-}
-
-// Der private Kalender "Buchungen"/Admin-Kalender = der normale Standard-
-// kalender dieses Google-Kontos. Falls stattdessen ein separat angelegter
-// Kalender genutzt werden soll: hier durch
-// CalendarApp.getCalendarById("...") ersetzen.
-function getPrivaterKalender() {
-  return CalendarApp.getDefaultCalendar();
+function getKalender() {
+  return CalendarApp.getCalendarById(KALENDER_ID);
 }
 
 function getSheet() {
@@ -88,10 +90,10 @@ function doPost(e) {
   const daten = JSON.parse(e.postData.contents);
   const { name, email, telefon, von, bis, erwachsene, kinder, tiere, tierart } = daten;
 
-  const oeffentlich = getOeffentlicherKalender();
+  const kalender = getKalender();
 
   // Serverseitig nochmal prüfen, falls zwei Gäste gleichzeitig anfragen.
-  const kollisionen = oeffentlich.getEvents(
+  const kollisionen = kalender.getEvents(
     new Date(von + "T00:00:00"),
     new Date(alsGanztagesEnde(bis) + "T00:00:00")
   );
@@ -101,7 +103,7 @@ function doPost(e) {
   }
 
   const id = Utilities.getUuid();
-  const angefragtEvent = oeffentlich.createAllDayEvent(
+  const angefragtEvent = kalender.createAllDayEvent(
     `${name} (ANGEFRAGT)`,
     new Date(von + "T00:00:00"),
     new Date(alsGanztagesEnde(bis) + "T00:00:00")
@@ -174,14 +176,13 @@ function doGet(e) {
   }
 
   const werte = blatt.getRange(zeile, 1, 1, SHEET_SPALTEN.length).getValues()[0];
-  const [, , , name, email, telefon, vonRoh, bisRoh, erwachsene, kinder, tiere, tierart, status, eventIdOeffentlich] = werte;
+  const [, , , name, email, telefon, vonRoh, bisRoh, erwachsene, kinder, tiere, tierart, status, eventId] = werte;
   const von = zuISODatum(vonRoh);
   const bis = zuISODatum(bisRoh);
 
   // Absicherung gegen Doppelklicks (z. B. durch Browser-Cache-Verwirrung):
   // eine Anfrage, die schon zugesagt/abgelehnt wurde, wird nicht nochmal
-  // verarbeitet — sonst gäbe es bei "zusagen" doppelte Einträge im privaten
-  // Kalender.
+  // verarbeitet.
   if (status === "bestätigt" || status === "abgelehnt") {
     return seitenAusgabe(`<p>Diese Anfrage wurde bereits bearbeitet (Status: ${status}).</p>`);
   }
@@ -197,26 +198,20 @@ function doGet(e) {
   }
 
   if (action === "zusagen") {
-    // Aktion 1: Eintrag im privaten Kalender mit allen Details.
-    const privat = getPrivaterKalender();
-    const beschreibung =
-      `E-Mail: ${email}\nTelefon: ${telefon}\n` +
-      `Erwachsene: ${erwachsene}, Kinder: ${kinder}, Tiere: ${tiere}${tierart ? " (" + tierart + ")" : ""}`;
-    privat.createAllDayEvent(
-      name,
-      new Date(von + "T00:00:00"),
-      new Date(alsGanztagesEnde(bis) + "T00:00:00"),
-      { description: beschreibung }
-    );
-
-    // Aktion 2: öffentlicher Kalender ANGEFRAGT -> BELEGT, Name bleibt.
-    const oeffentlich = getOeffentlicherKalender();
-    const event = oeffentlich.getEventById(eventIdOeffentlich);
-    if (event) event.setTitle(`${name} (BELEGT)`);
+    const kalender = getKalender();
+    const event = kalender.getEventById(eventId);
+    if (event) {
+      // Titel ohne "(ANGEFRAGT)" -> zählt ab jetzt automatisch als "belegt".
+      // Kontaktdaten kommen in die Beschreibung, die die Website nie liest.
+      event.setTitle(name);
+      event.setDescription(
+        `E-Mail: ${email}\nTelefon: ${telefon}\n` +
+        `Erwachsene: ${erwachsene}, Kinder: ${kinder}, Tiere: ${tiere}${tierart ? " (" + tierart + ")" : ""}`
+      );
+    }
 
     blatt.getRange(zeile, 13).setValue("bestätigt"); // Spalte "status"
 
-    // Aktion 3: Bestätigungsmail vorbereiten.
     const betreff = `Bestätigung Reservationsanfrage ${HAUS_NAME} – ${name}, ${formatiereDatum(von)} – ${formatiereDatum(bis)}`;
     const mailtoLink =
       `mailto:${encodeURIComponent(email)}` +

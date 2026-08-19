@@ -250,6 +250,11 @@ function doGet(e) {
   }
 
   if (action === "ablehnen") {
+    // Tage wieder freigeben: den "Name (ANGEFRAGT)"-Eintrag löschen.
+    const kalender = getKalender();
+    const event = kalender.getEventById(eventId);
+    if (event) event.deleteEvent();
+
     blatt.getRange(zeile, 13).setValue("abgelehnt"); // Spalte "status"
     const text = holeVorlage(`ablehnen-${spracheKlein}`, platzhalter);
     const mailtoLink =

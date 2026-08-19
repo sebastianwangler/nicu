@@ -30,6 +30,8 @@ const I18N = {
     "form.submit": "Buchung anfragen",
     "form.success.title": "Anfrage abgeschickt (Testmodus)",
     "form.success.body": "Im echten Betrieb geht jetzt diese Mail an den Verwalter, und die Tage werden im öffentlichen Kalender als „angefragt“ blockiert:",
+    "form.success.title.real": "Anfrage abgeschickt",
+    "form.success.body.real": "Deine Anfrage wurde an den Verwalter geschickt. Du erhältst eine Rückmeldung, sobald sie bearbeitet wurde.",
     "lang.de": "DE",
     "lang.fr": "FR",
     "lang.en": "EN"
@@ -64,6 +66,8 @@ const I18N = {
     "form.submit": "Envoyer la demande",
     "form.success.title": "Demande envoyée (mode test)",
     "form.success.body": "En production, cet e-mail serait envoyé au gestionnaire et les jours seraient bloqués comme « demandés » dans le calendrier public :",
+    "form.success.title.real": "Demande envoyée",
+    "form.success.body.real": "Votre demande a été envoyée au gestionnaire. Vous recevrez une réponse dès qu'elle sera traitée.",
     "lang.de": "DE",
     "lang.fr": "FR",
     "lang.en": "EN"
@@ -98,6 +102,8 @@ const I18N = {
     "form.submit": "Request booking",
     "form.success.title": "Request sent (test mode)",
     "form.success.body": "In production this email would go to the manager, and the days would be blocked as \"requested\" in the public calendar:",
+    "form.success.title.real": "Request sent",
+    "form.success.body.real": "Your request has been sent to the manager. You'll hear back once it's been reviewed.",
     "lang.de": "DE",
     "lang.fr": "FR",
     "lang.en": "EN"

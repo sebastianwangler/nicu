@@ -188,9 +188,10 @@ function doGet(e) {
 
   if (action === "ablehnen") {
     blatt.getRange(zeile, 13).setValue("abgelehnt"); // Spalte "status"
+    const betreffAblehnen = `Ablehnung Reservationsanfrage ${HAUS_NAME} – ${name}, ${formatiereDatum(von)} – ${formatiereDatum(bis)}`;
     const mailtoLink =
       `mailto:${encodeURIComponent(email)}` +
-      `?subject=${encodeURIComponent("Ihre Anfrage " + HAUS_NAME)}` +
+      `?subject=${encodeURIComponent(betreffAblehnen)}` +
       `&body=${encodeURIComponent("Leider keine Kapazität.")}`;
     return mailSeite("Anfrage abgelehnt.", mailtoLink);
   }

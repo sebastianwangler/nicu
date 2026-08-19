@@ -175,20 +175,25 @@ async function renderKalender(hausKey, container) {
     html += `<div class="tag tag--leer"></div>`;
   }
 
+  const heute = new Date();
+  heute.setHours(0, 0, 0, 0);
+
   for (let tag = 1; tag <= anzahlTage; tag++) {
     const datum = new Date(jahr, monat, tag);
     const iso = zuISO(datum);
     const { status, name } = ermittleTagesInfo(hausKey, iso, echteEvents);
+    const istVergangen = datum < heute;
     const istAusgewaehlt =
       (state.start && iso === state.start) || (state.ende && iso === state.ende);
     const imBereich =
       state.start && state.ende && iso > state.start && iso < state.ende;
 
     const klassen = ["tag", `tag--${status.toLowerCase()}`];
+    if (istVergangen && status === "FREI") klassen.push("tag--vergangen");
     if (istAusgewaehlt) klassen.push("tag--ausgewaehlt");
     if (imBereich) klassen.push("tag--im-bereich");
 
-    const klickbar = status === "FREI";
+    const klickbar = status === "FREI" && !istVergangen;
     // Zeigt bevorzugt den Namen aus dem Event-Titel; nur wenn keiner
     // hinterlegt ist (z. B. MOCK_EVENTS ohne name-Feld), das generische Wort.
     const label = name

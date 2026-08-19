@@ -105,6 +105,16 @@ function holeVorlage(schluessel, werte) {
   return text;
 }
 
+// Einmalig manuell ausführen (Apps-Script-Editor: Funktion "alleVorlagenAnlegen"
+// oben im Dropdown auswählen, dann "Ausführen"), um sofort alle 4
+// Vorlagendateien in Drive anzulegen, statt zu warten, bis jede Kombination
+// aus Aktion+Sprache einmal real vorgekommen ist.
+function alleVorlagenAnlegen() {
+  Object.keys(VORLAGEN_DATEIEN).forEach((schluessel) => {
+    holeVorlage(schluessel, { name: "", von: "", bis: "", haus: HAUS_NAME });
+  });
+}
+
 // Deutsches Datumsformat für Betreffzeilen, passend zur Website.
 function formatiereDatum(isoDatum) {
   const [j, m, t] = isoDatum.split("-");

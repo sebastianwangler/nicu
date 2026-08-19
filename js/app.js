@@ -12,8 +12,6 @@ function init() {
     renderKarussell(hausKey, karussellContainer);
     const beschreibungContainer = document.querySelector(`[data-beschreibung="${hausKey}"]`);
     renderBeschreibung(hausKey, beschreibungContainer);
-    const preiseContainer = document.querySelector(`[data-preise="${hausKey}"]`);
-    renderPreise(hausKey, preiseContainer);
     const kalenderContainer = document.querySelector(`[data-kalender="${hausKey}"]`);
     renderKalender(hausKey, kalenderContainer);
   });
@@ -43,8 +41,6 @@ function init() {
       renderKarussell(hausKey, karussellContainer); // Index bleibt erhalten, nur Beschriftungen ändern sich
       const beschreibungContainer = document.querySelector(`[data-beschreibung="${hausKey}"]`);
       renderBeschreibung(hausKey, beschreibungContainer);
-      const preiseContainer = document.querySelector(`[data-preise="${hausKey}"]`);
-      renderPreise(hausKey, preiseContainer);
       const kalenderContainer = document.querySelector(`[data-kalender="${hausKey}"]`);
       renderKalender(hausKey, kalenderContainer);
       const anfrageContainer = document.querySelector(`[data-anfrage="${hausKey}"]`);

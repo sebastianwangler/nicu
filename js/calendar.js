@@ -8,7 +8,6 @@
 const WOCHENTAGE_MO_START = [1, 2, 3, 4, 5, 6, 0]; // Mo..So, JS: So=0
 
 const HAUS_STATE = {};
-const GOOGLE_EVENTS_CACHE = {};
 
 function initHausState(hausKey) {
   const heute = new Date();
@@ -63,11 +62,11 @@ function parseEventTitel(titelRoh) {
   return { name: belegtMatch ? belegtMatch[1].trim() : titel, status: "BELEGT" };
 }
 
-// Lädt (und cached pro Monat) die Events des echten "Verfügbarkeit"-Kalenders.
+// Lädt die Events des echten Kalenders — bewusst ohne Cache: die Seite
+// bleibt oft länger offen (Formular ausfüllen, Mail-Antworten abwarten),
+// und ein veralteter Stand hätte schon zu verwirrenden "belegt"-Meldungen
+// für längst freie Tage geführt.
 async function ladeMonatsEvents(hausKey, jahr, monat) {
-  const cacheKey = `${hausKey}-${jahr}-${monat}`;
-  if (GOOGLE_EVENTS_CACHE[cacheKey]) return GOOGLE_EVENTS_CACHE[cacheKey];
-
   const haus = CONFIG.haeuser[hausKey];
   const timeMin = new Date(jahr, monat, 1).toISOString();
   const timeMax = new Date(jahr, monat + 1, 1).toISOString();
@@ -94,7 +93,6 @@ async function ladeMonatsEvents(hausKey, jahr, monat) {
     })
     .filter(Boolean);
 
-  GOOGLE_EVENTS_CACHE[cacheKey] = events;
   return events;
 }
 
@@ -231,7 +229,7 @@ async function renderKalender(hausKey, container) {
     wechsleMonat(hausKey, container, 1);
   });
   container.querySelectorAll(".tag[data-datum]:not([disabled])").forEach((btn) => {
-    btn.addEventListener("click", () => tagAngeklickt(hausKey, container, btn.getAttribute("data-datum")));
+    btn.addEventListener("click", () => tagAngeklickt(hausKey, container, btn.getAttribute("data-datum"), jahr, monat));
   });
 }
 
@@ -248,7 +246,7 @@ function wechsleMonat(hausKey, container, delta) {
   renderKalender(hausKey, container);
 }
 
-function tagAngeklickt(hausKey, container, iso) {
+async function tagAngeklickt(hausKey, container, iso, jahr, monat) {
   const state = HAUS_STATE[hausKey];
 
   state.fehler = false;
@@ -259,12 +257,26 @@ function tagAngeklickt(hausKey, container, iso) {
   } else if (!state.ende) {
     if (iso <= state.start) {
       state.start = iso;
-    } else if (hatBlockiertenTagDazwischen(hausKey, state.start, iso)) {
-      state.fehler = true;
-      state.start = null;
-      state.ende = null;
     } else {
-      state.ende = iso;
+      // Echte Events frisch laden statt aus dem Speicher zu raten — sonst
+      // würde ermittleTagesInfo() ohne Übergabe auf MOCK_EVENTS zurückfallen
+      // und die Zwischentage anhand von Test-Fake-Daten statt des echten
+      // Kalenders prüfen.
+      let echteEvents;
+      if (hatEchtenKalender(hausKey)) {
+        try {
+          echteEvents = await ladeMonatsEvents(hausKey, jahr, monat);
+        } catch (err) {
+          console.error("Google Calendar konnte nicht geladen werden:", err);
+        }
+      }
+      if (hatBlockiertenTagDazwischen(hausKey, state.start, iso, echteEvents)) {
+        state.fehler = true;
+        state.start = null;
+        state.ende = null;
+      } else {
+        state.ende = iso;
+      }
     }
   } else {
     // neue Auswahl beginnt

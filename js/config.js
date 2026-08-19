@@ -18,6 +18,7 @@ const CONFIG = {
     },
     haus2: {
       name: "Les Deux Cypres",
+      aktiv: false, // Tab auf der Website ausgeblendet, bis dieses Haus gebraucht wird — einfach auf true stellen, um es wieder zu zeigen
       standort: "Uzès, FR",
       ordner: "les-deux-cypres",
       googleCalendarId: "",

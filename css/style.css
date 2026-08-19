@@ -81,6 +81,10 @@ h1, h2 { line-height: 1.2; }
   margin-bottom: 1.5rem;
 }
 
+.tabs[hidden] {
+  display: none;
+}
+
 .tab-button {
   background: var(--farbe-flaeche);
   border: 1px solid var(--farbe-rand);

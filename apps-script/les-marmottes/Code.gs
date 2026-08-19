@@ -155,6 +155,12 @@ function betreffAblehnen(sprache, name, von, bis) {
     : `Ablehnung Reservationsanfrage ${HAUS_NAME} – ${name}, ${formatiereDatum(von)} – ${formatiereDatum(bis)}`;
 }
 
+function betreffAnfrageEingegangen(sprache, name, von, bis) {
+  return sprache === "fr"
+    ? `Votre demande de réservation ${HAUS_NAME} – ${name}, ${formatiereDatum(von)} – ${formatiereDatum(bis)}`
+    : `Deine Reservationsanfrage ${HAUS_NAME} – ${name}, ${formatiereDatum(von)} – ${formatiereDatum(bis)}`;
+}
+
 function doPost(e) {
   const daten = JSON.parse(e.postData.contents);
   const { name, email, telefon, von, bis, erwachsene, kinder, tiere, tierart, sprache } = daten;
@@ -209,6 +215,37 @@ function doPost(e) {
     to: VERWALTER_EMAIL,
     subject: `Reservationsanfrage ${HAUS_NAME} – ${name}, ${formatiereDatum(von)} – ${formatiereDatum(bis)}`,
     htmlBody
+  });
+
+  // Gleicher Inhalt, ohne Zusagen/Ablehnen-Buttons, als Bestätigung an den
+  // Gast, dass die Anfrage angekommen ist — in der Sprache, in der er die
+  // Website benutzt hat.
+  const spracheGast = sprache === "fr" ? "fr" : "de";
+  const gastHtmlBody =
+    spracheGast === "fr"
+      ? `
+        <p>Votre demande de réservation pour ${HAUS_NAME} a bien été transmise :</p>
+        <ul>
+          <li><strong>Nom :</strong> ${name}</li>
+          <li><strong>Période :</strong> ${formatiereDatum(von)} – ${formatiereDatum(bis)}</li>
+          <li><strong>Adultes :</strong> ${erwachsene}, <strong>Enfants :</strong> ${kinder}, <strong>Animaux :</strong> ${tiere}${tierart ? " (" + tierart + ")" : ""}</li>
+        </ul>
+        <p>Vous recevrez une réponse dès que votre demande aura été traitée.</p>
+      `
+      : `
+        <p>Deine Reservationsanfrage für ${HAUS_NAME} wurde übermittelt:</p>
+        <ul>
+          <li><strong>Name:</strong> ${name}</li>
+          <li><strong>Zeitspanne:</strong> ${formatiereDatum(von)} – ${formatiereDatum(bis)}</li>
+          <li><strong>Erwachsene:</strong> ${erwachsene}, <strong>Kinder:</strong> ${kinder}, <strong>Tiere:</strong> ${tiere}${tierart ? " (" + tierart + ")" : ""}</li>
+        </ul>
+        <p>Du erhältst eine Rückmeldung, sobald deine Anfrage bearbeitet wurde.</p>
+      `;
+
+  MailApp.sendEmail({
+    to: email,
+    subject: betreffAnfrageEingegangen(spracheGast, name, von, bis),
+    htmlBody: gastHtmlBody
   });
 
   return ContentService.createTextOutput(JSON.stringify({ ok: true }))
